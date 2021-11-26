@@ -12,7 +12,7 @@ SYSCTL_PERIPH_GPIOF EQU		0x400FE108
 
 GPIO_PORTF_BASE		EQU		0x40025000
 GPIO_PORTE_BASE		EQU		0x40024000
-;GPIO_PORTD_BASE		EQU		0x
+GPIO_PORTD_BASE		EQU		0x40007000	
 
 
 ; configure the corresponding pin to be an output
@@ -56,6 +56,13 @@ PORT01				EQU		0x03
 ; PORT E : selection du BUMPER DROIT, LIGNE 0 du Port E
 
 PORT0				EQU		0x01
+; PORT D : selection du SWICTH1
+
+PORT6				EQU		0x40
+	
+; PORT D :selection du SWITCH2	
+
+PORT7				EQU		0x80  	;switch sur port 7  ;0b 0100 0000
 
 ; PORT E : selection du BUMPER DROIT, LIGNE 1 du Port E
 
@@ -92,9 +99,9 @@ DUREE   			EQU     0x002FFFFF
 		IMPORT  MOTEUR_GAUCHE_INVERSE		; inverse le sens de rotation du moteur gauche
 __main	
 
-;activation des port F et E (LED et BUMPER)
+;activation des port D,F et E (SWITCH,LED et BUMPER)
 		ldr r6, = SYSCTL_PERIPH_GPIOF  		
-        mov r0, #0x00000038  	;58 pour Port D,F,E			
+        mov r0, #0x00000058  	;58 pour Port D,F,E			
 
 	    str r0, [r6]
 		  
@@ -125,53 +132,109 @@ __main
 		ldr r7, = GPIO_PORTE_BASE+GPIO_O_DEN	
         ldr r0, = PORT01		
         str r0, [r7]	
-; Activer le registre des bumpers, Port E
+	; Activer le registre des bumpers, Port E
 
 		ldr r7, = GPIO_PORTE_BASE+GPIO_PUR	
         ldr r0, = PORT01
         str r0, [r7]
 		
-		b	MOTEUR_INIT
-		b	MOTEUR_DROIT_ON
-		b	MOTEUR_GAUCHE_ON
+	;Activation du port d
+		ldr r6, = GPIO_PORTD_BASE+GPIO_O_DEN	;;Enable Digital Function (p316 )
+        ldr r0, = PORT6 + PORT7		
+        str r0, [r6]
+
+	;Activation des switchs
+		ldr r6, = GPIO_PORTD_BASE+GPIO_PUR	;; Choix de l'intensité de sortie (2mA)
+        ldr r0, = PORT6 + PORT7			
+        str r0, [r6]
+		
+		
+	;Activation des moteurs
+		B	MOTEUR_INIT
+		B	MOTEUR_DROIT_ON
+		B	MOTEUR_GAUCHE_ON
 		
 		;FIN CONFIGURATION
 		
 		;BOUCLE PRINCIPALE
+loop	
+		B AVANCER
 		
-		b AVANCER
+		B LIRE_BUMPER_DROIT
 		
+		cmp	r5,#0x00
+		
+		BNE DEMI_TOUR_DROIT
+		
+		B LIRE_BUMPER_GAUCHE
+		
+		CMP r9,#0x00
+		
+		BNE DEMI_TOUR_GAUCHE
+		
+		B loop
 		;FIN DE LA BOUCLE
 
 		
-		;FCT UTILS
+		;FONCTIONS UTILS
 LIRE_BUMPER_DROIT
+	
 		ldr r7,= GPIO_PORTE_BASE + (PORT0<<2)
 		ldr r5, [r7]
 		BX	LR
+		
 LIRE_BUMPER_GAUCHE
 
         ldr r9, =  GPIO_PORTE_BASE + (PORT1<<2)
 		ldr r10, [r9]
 		BX	LR
+		
 AVANCER
+		mov r12,LR
 		b MOTEUR_DROIT_AVANT
 		b MOTEUR_GAUCHE_AVANT
-		BX	LR
+		BX	r12
 		
 RECULER
+		mov r12,LR
 		b MOTEUR_DROIT_ARRIERE
 		b MOTEUR_GAUCHE_ARRIERE
-		BX	LR
-;DEMI_TOUR_DROIT
-	;BX	LR
+		BX	r12
+		
+DEMI_TOUR_DROIT
+		mov r12,LR	
+		b MOTEUR_DROIT_ARRIERE
+		b MOTEUR_GAUCHE_ARRIERE
+		b WAIT
+		b MOTEUR_DROIT_ON
+		nop
+		BX	r12
 
-;DEMI_TOUR_DROIT
+
+; pour la durée de la boucle d'attente1 (wait1)
+WAIT 	
+		ldr r1, = DUREE
+w1		subs r1, #1
+		bne w1
+		BX	LR
+		
+LIRE_SWITCH1
+		ldr r7, = GPIO_PORTD_BASE+ (PORT6<<2)
+		ldr r5, [r7]
+		BX LR
+
+LIRE_SWITCH2
+		ldr r9, = GPIO_PORTD_BASE+ (PORT7<<2)
+		ldr r10, [r9]
+		BX LR
+		
+;DEMI_TOUR_GAUCHE
 	;BX	LR
 
 ;ARRET
 		;b MOTEUR_GAUCHE_OFF
 		;b MOTEUR_DROIT_OFF
+		
 		;BX	LR
 		
 ;CLIGNOTE
