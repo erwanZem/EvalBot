@@ -1,14 +1,14 @@
-; Evalbot (Cortex M3 de Texas Instrument
-; programme - bumpers - led 
+; Evalbot (Cortex M3 de Texas Instrument)
+; programme - bumpers - leds - switchs - moteurs
    	
 		AREA    |.text|, CODE, READONLY
  
-; This register controls the clock gating logic in normal Run ;mode SYSCTL_RCGC2_R (p291 datasheet de lm3s9b92.pdf
+; This register controls the clock gating logic in normal Run ;mode SYSCTL_RCGC2_R 
 
 SYSCTL_PERIPH_GPIOF EQU		0x400FE108
 
 ; The GPIODATA register is the data register
-; GPIO Port F (APB) base: 0x4002.5000 (p416 datasheet de ;lm3s9B92.pdf
+; GPIO Port F (APB) base: 0x4002.5000 
 
 GPIO_PORTF_BASE		EQU		0x40025000
 GPIO_PORTE_BASE		EQU		0x40024000
@@ -17,19 +17,19 @@ GPIO_PORTD_BASE		EQU		0x40007000
 
 ; configure the corresponding pin to be an output
 ; all GPIO pins are inputs by default
-; GPIO Direction (p417 datasheet de lm3s9B92.pdf
+; GPIO Direction 
 
 GPIO_O_DIR   		EQU 	0x400
 
 ; The GPIODR2R register is the 2-mA drive control register
 ; By default, all GPIO pins have 2-mA drive.
-; GPIO 2-mA Drive Select (p428 datasheet de lm3s9B92.pdf)
+; GPIO 2-mA Drive Select 
 
 GPIO_O_DR2R   		EQU 	0x500  
 
 ; Digital enable register
 ; To use the pin as a digital input or output, the ;corresponding GPIODEN bit must be set.
-; GPIO Digital Enable (p437 datasheet de lm3s9B92.pdf)
+; GPIO Digital Enable 
 
 GPIO_O_DEN   		EQU 	0x51C  
 
@@ -99,7 +99,7 @@ DUREE   			EQU     0x002FFFFF
 		IMPORT  MOTEUR_GAUCHE_INVERSE		; inverse le sens de rotation du moteur gauche
 __main	
 
-;activation des port D,F et E (SWITCH,LED et BUMPER)
+		;activation des port D,F et E (SWITCH,LED et BUMPER)
 		ldr 	r6, = SYSCTL_PERIPH_GPIOF  		
         mov 	r0, #0x00000038  	;58 pour Port D,F,E			
 
@@ -110,7 +110,7 @@ __main
 		nop	   									
 	
 ;CONFIGURATION DES LEDS
-;Configuration des leds en Output
+	;Configuration des leds en Output
 		ldr 	r6, = GPIO_PORTF_BASE+GPIO_O_DIR  
 		ldr 	r0, = PORT45	
 		str 	r0, [r6]
@@ -138,7 +138,7 @@ __main
         ldr 	r0, = PORT01
         str 	r0, [r7]
 		
-	;Activation du port d
+	;Activation du port D
 		ldr 	r6, = GPIO_PORTD_BASE+GPIO_O_DEN	;;Enable Digital Function (p316 )
         ldr 	r0, = PORT6 + PORT7		
         str 	r0, [r6]
@@ -158,30 +158,31 @@ __main
 		
 		;BOUCLE PRINCIPALE
 loop	
+		;le robot avance 
 		BL 		AVANCER
-		
+		;Check si il y a collision a droit
 		BL 		LIRE_BUMPER_DROIT
 		
 		cmp		r5,#0x00
-		
+		;si oui effectue un demi-tour
 		BEQ 	DEMI_TOUR_DROIT
-		
+		;check de collision vers la gauche
 		BL 		LIRE_BUMPER_GAUCHE
 		
 		CMP 	r10,#0x00
-		
+		;si oui effectue un demi-tour
 		BEQ 	DEMI_TOUR_GAUCHE
-
+		;check si le switch 1 est utilisé
 		BL 		LIRE_SWITCH1
 		
 		cmp		r5,#0x00
-		
+		;si oui effectue un évenenment 
 		BEQ 	BONUS
-
+		;check si le switch 1 est utilisé
 		BL 		LIRE_SWITCH2
 		
 		CMP 	r10,#0x00
-		
+		;si oui effectue un évenenment 
 		BEQ 	BONUS
 		
 		BL		loop
@@ -197,20 +198,19 @@ LIRE_BUMPER_DROIT
 		
 LIRE_BUMPER_GAUCHE
 		;Enregistrement de la valeur a l'adresse mémoire du port broche 1 dans le registre r10
-
         ldr 	r9, =  GPIO_PORTE_BASE + (PORT1<<2)
 		ldr 	r10, [r9]
 		BX		LR
 		
 AVANCER
-;Active les moteurs vers l'avant
+		;Active les moteurs vers l'avant
 		mov 	r12,LR
 		BL		MOTEUR_DROIT_AVANT
 		BL 		MOTEUR_GAUCHE_AVANT
 		BX		r12
 		
 RECULER
-;Activer les moteur vers l'arriere
+		;Activer les moteur vers l'arriere
 		mov 	r10,LR
 		BL 		MOTEUR_DROIT_ARRIERE
 		BL		MOTEUR_GAUCHE_ARRIERE
@@ -219,31 +219,32 @@ RECULER
 DEMI_TOUR_DROIT
 			; Evalbot recule
 		BL 		RECULER
-		; Recule pendant 4 wait
+		; Recule pendant 5 wait + les leds clignotes
 		BL 		CLIGNOTER
-		; Rotation dde l'Evalbot pendant une demi-période (1 seul WAIT)
+		; Rotation de l'Evalbot vers la gauche
 		BL		MOTEUR_GAUCHE_AVANT
 		BL		MOTEUR_DROIT_ARRIERE
-
+		; Rotataion durant  5 wait + les leds clignotes
 		BL 		CLIGNOTER
 		BL		loop
 
 
 DEMI_TOUR_GAUCHE	
-			; 
+	 	; Evalbot recule
 		BL		RECULER
 
-     	; Recule pendant 1 wait
+		; Recule pendant 5 wait + les leds clignotes
 		BL 		CLIGNOTER	
-		; Rotation dde l'Evalbot pendant une demi-période (1 seul WAIT)
+		; Rotation de l'Evalbot vers la droite
 		BL		MOTEUR_GAUCHE_ARRIERE
 		BL		MOTEUR_DROIT_AVANT
+		; Rotataion durant  5 wait + les leds clignotes
 		BL 		CLIGNOTER
 	    BL 		loop
 		
 		
 		
-; pour la durée de la boucle d'attente1 (wait1)
+		; pour la durée de la boucle d'attente1 (wait1)
 WAIT 	
 		ldr 	r1, = DUREE
 w1		subs 	r1, #1 	
@@ -251,53 +252,59 @@ w1		subs 	r1, #1
 		BX		LR
 		
 ALLUMER_LED
-	mov 	r3, #(PORT4 + PORT5)
-	ldr 	r6, = GPIO_PORTF_BASE+ ((PORT4+PORT5)<<2) ;
-	str 	r3, [r6]
-	BX		LR
+		;allume les leds en placant mettant la valeur de l'addresse mémoire du portf sur les ports 4 et 5 a 0b1
+		mov 	r3, #(PORT4 + PORT5)
+		ldr 	r6, = GPIO_PORTF_BASE+ ((PORT4+PORT5)<<2) ;
+		str 	r3, [r6]
+		BX		LR
 
 CLIGNOTER
-	mov		r10,LR
-	BL		ALLUMER_LED
-	BL		WAIT
-	BL		ETEINDRE_LED
-	BL	  	WAIT
-	BL		ALLUMER_LED
-	BL		WAIT
-	BL		ETEINDRE_LED
-	BL 		WAIT
-	BL		ALLUMER_LED
-	BL		WAIT
-	BL		ETEINDRE_LED
-	BX		r10
+		;enchainement de d'allumage et d'eteignage des leds couper par des wait, permet de faire  clignoter les leds
+		mov		r10,LR
+		BL		ALLUMER_LED
+		BL		WAIT
+		BL		ETEINDRE_LED
+		BL	  	WAIT
+		BL		ALLUMER_LED
+		BL		WAIT
+		BL		ETEINDRE_LED
+		BL 		WAIT
+		BL		ALLUMER_LED
+		BL		WAIT
+		BL		ETEINDRE_LED
+		BX		r10
 
 
 
 ETEINDRE_LED
-	mov 	r2,#0x00
-	ldr 	r6, = GPIO_PORTF_BASE+ ((PORT4+PORT5)<<2) ;
-	str 	r2, [r6]
-	BX		LR
+		;eteint  les leds en placant mettant la valeur de l'addresse mémoire du portf sur les ports 4 et 5 a 0b00
+		mov 	r2,#0x00
+		ldr 	r6, = GPIO_PORTF_BASE+ ((PORT4+PORT5)<<2) ;
+		str 	r2, [r6]
+		BX		LR
 	
 LIRE_SWITCH1
-	ldr 	r7, = GPIO_PORTD_BASE+ (PORT6<<2)
-	ldr 	r5, [r7]
-	BX 		LR
+		;enregistre dans le registre r7 la valeur contenu dans l'adresse mémoire du port D a la broche 6
+		ldr 	r7, = GPIO_PORTD_BASE+ (PORT6<<2)
+		ldr 	r5, [r7]
+		BX 		LR
 
 LIRE_SWITCH2
-	ldr 	r9, = GPIO_PORTD_BASE+ (PORT7<<2)
-	ldr 	r10, [r9]
-	BX		LR
+		;enregistre dans le registre r9 la valeur contenu dans l'adresse mémoire du port D a la broche 7
+		ldr 	r9, = GPIO_PORTD_BASE+ (PORT7<<2)
+		ldr 	r10, [r9]
+		BX		LR
 		
 
 		
 
 BONUS
-	mov 	r12,LR
-	BL		MOTEUR_DROIT_ARRIERE   ; 
-	BL		MOTEUR_GAUCHE_AVANT
-	BL		CLIGNOTER	
-	BL		loop
+		;Le robot tourne sur lui même en clignotant 
+		mov 	r12,LR
+		BL		MOTEUR_DROIT_ARRIERE   ; 
+		BL		MOTEUR_GAUCHE_AVANT
+		BL		CLIGNOTER	
+		BL		loop
 
 
 	nop
